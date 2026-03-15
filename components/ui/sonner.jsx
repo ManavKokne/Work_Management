@@ -11,6 +11,8 @@ export function Toaster(props) {
           toast: "border border-border",
           title: "text-foreground",
           description: "text-muted",
+          closeButton:
+            "right-2 top-2 flex h-6 w-6 items-center justify-center rounded-sm border border-border/50 bg-card text-foreground hover:bg-secondary",
         },
       }}
       {...props}

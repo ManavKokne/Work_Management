@@ -44,6 +44,15 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
   const [form, setForm] = useState(defaultState);
   const [saving, setSaving] = useState(false);
 
+  function shouldSkipDirectUploadInDev() {
+    const directUploadEnabled =
+      process.env.NEXT_PUBLIC_ENABLE_DIRECT_STORAGE_UPLOAD === "true";
+    const host = window.location.hostname;
+    const isLocalHost = host === "localhost" || host === "127.0.0.1";
+
+    return isLocalHost && !directUploadEnabled;
+  }
+
   useEffect(() => {
     if (!open || !task) return;
 
@@ -120,7 +129,23 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
 
     setSaving(true);
     try {
-      const photoUrl = await uploadPhotoIfNeeded();
+      let photoUrl = "";
+
+      if (form.photoFile) {
+        if (shouldSkipDirectUploadInDev()) {
+          toast.info(
+            "Photo upload is disabled on localhost to avoid Firebase CORS errors. Enable NEXT_PUBLIC_ENABLE_DIRECT_STORAGE_UPLOAD=true after configuring bucket CORS."
+          );
+        } else {
+          try {
+            photoUrl = await uploadPhotoIfNeeded();
+          } catch {
+            toast.warning(
+              "Photo upload was blocked (CORS). Task details will be saved without the photo."
+            );
+          }
+        }
+      }
 
       const payload = {
         task_id: task.task_id,
@@ -160,15 +185,18 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent className="max-h-[90vh] overflow-hidden p-4 sm:p-6">
+        <DialogHeader className="pr-6">
           <DialogTitle>Edit Task #{task.task_id}</DialogTitle>
           <DialogDescription>
             Submit engineer report and update task status.
           </DialogDescription>
         </DialogHeader>
 
-        <form className="grid gap-4" onSubmit={onSubmit}>
+        <form
+          className="grid max-h-[calc(90vh-7.5rem)] gap-4 overflow-y-auto pr-1"
+          onSubmit={onSubmit}
+        >
           <div className="grid gap-2 sm:grid-cols-2 sm:gap-4">
             <div className="grid gap-2">
               <Label>Customer Name</Label>
