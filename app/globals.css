@@ -1,21 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f7fb;
-  --foreground: #0f172a;
-  --muted: #64748b;
+  --background: #f9f4ed;
+  --foreground: #22252b;
+  --muted: #5c5f66;
   --card: #ffffff;
-  --card-foreground: #0f172a;
-  --border: #dbe3ef;
-  --primary: #0f3a75;
-  --primary-foreground: #f8fafc;
-  --secondary: #e8eef8;
-  --secondary-foreground: #0f172a;
-  --accent: #0ea5e9;
-  --accent-foreground: #082f49;
+  --card-foreground: #22252b;
+  --border: #eadcc8;
+  --primary: #ef8b31;
+  --primary-foreground: #ffffff;
+  --secondary: #f7ede1;
+  --secondary-foreground: #2b2f37;
+  --accent: #2b2f37;
+  --accent-foreground: #faf5ef;
   --destructive: #b91c1c;
   --destructive-foreground: #fef2f2;
-  --ring: #93c5fd;
+  --ring: #ef8b31;
   --radius: 0.7rem;
 }
 
@@ -48,6 +48,6 @@ body {
 }
 
 .dashboard-shell {
-  background-image: radial-gradient(circle at top right, rgba(14, 165, 233, 0.1), transparent 35%),
-    radial-gradient(circle at bottom left, rgba(15, 58, 117, 0.08), transparent 45%);
+  background-image: radial-gradient(circle at top right, rgba(239, 139, 49, 0.14), transparent 34%),
+    radial-gradient(circle at bottom left, rgba(34, 37, 43, 0.06), transparent 42%);
 }

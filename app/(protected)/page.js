@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import NewTaskModal from "@/components/NewTaskModal";
 import EditTaskModal from "@/components/EditTaskModal";
+import PreviewTaskModal from "@/components/PreviewTaskModal";
 import TaskTable from "@/components/TaskTable";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +18,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [editTaskOpen, setEditTaskOpen] = useState(false);
+  const [previewTaskOpen, setPreviewTaskOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
 
   const dashboardSummary = useMemo(() => {
@@ -52,6 +54,11 @@ export default function HomePage() {
   function openEdit(task) {
     setSelectedTask(task);
     setEditTaskOpen(true);
+  }
+
+  function openPreview(task) {
+    setSelectedTask(task);
+    setPreviewTaskOpen(true);
   }
 
   async function printTask(task) {
@@ -158,7 +165,7 @@ export default function HomePage() {
           {loading ? (
             <p className="py-8 text-center text-sm text-muted">Loading tasks...</p>
           ) : (
-            <TaskTable tasks={tasks} onEdit={openEdit} onPrint={printTask} />
+            <TaskTable tasks={tasks} onEdit={openEdit} onPrint={printTask} onPreview={openPreview} />
           )}
         </CardContent>
       </Card>
@@ -169,6 +176,11 @@ export default function HomePage() {
         onOpenChange={setEditTaskOpen}
         task={selectedTask}
         onUpdated={fetchTasks}
+      />
+      <PreviewTaskModal
+        open={previewTaskOpen}
+        onOpenChange={setPreviewTaskOpen}
+        task={selectedTask}
       />
     </main>
   );

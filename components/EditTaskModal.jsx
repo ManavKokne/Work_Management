@@ -185,7 +185,7 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-hidden p-4 sm:p-6">
+      <DialogContent className="max-h-[90vh] w-[96vw] max-w-5xl overflow-hidden p-4 sm:p-6">
         <DialogHeader className="pr-6">
           <DialogTitle>Edit Task #{task.task_id}</DialogTitle>
           <DialogDescription>
@@ -193,10 +193,7 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
           </DialogDescription>
         </DialogHeader>
 
-        <form
-          className="grid max-h-[calc(90vh-7.5rem)] gap-4 overflow-y-auto pr-1"
-          onSubmit={onSubmit}
-        >
+        <form className="grid max-h-[calc(90vh-7.5rem)] gap-4 overflow-y-auto pr-2" onSubmit={onSubmit}>
           <div className="grid gap-2 sm:grid-cols-2 sm:gap-4">
             <div className="grid gap-2">
               <Label>Customer Name</Label>

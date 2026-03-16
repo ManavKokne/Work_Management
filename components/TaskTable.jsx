@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Printer } from "lucide-react";
+import { Eye, Pencil, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -19,7 +19,7 @@ function statusVariant(status) {
   return "secondary";
 }
 
-export default function TaskTable({ tasks, onEdit, onPrint }) {
+export default function TaskTable({ tasks, onEdit, onPrint, onPreview }) {
   return (
     <Table>
       <TableHeader>
@@ -32,12 +32,13 @@ export default function TaskTable({ tasks, onEdit, onPrint }) {
           <TableHead>Status</TableHead>
           <TableHead className="w-14 text-center">Edit</TableHead>
           <TableHead className="w-14 text-center">Print</TableHead>
+          <TableHead className="w-14 text-center">Preview</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {tasks.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={8} className="py-6 text-center text-muted">
+            <TableCell colSpan={9} className="py-6 text-center text-muted">
               No tasks found. Create a task to get started.
             </TableCell>
           </TableRow>
@@ -62,6 +63,12 @@ export default function TaskTable({ tasks, onEdit, onPrint }) {
                 <Button variant="ghost" size="icon" onClick={() => onPrint(task)}>
                   <Printer className="h-4 w-4" />
                   <span className="sr-only">Print Task</span>
+                </Button>
+              </TableCell>
+              <TableCell className="text-center">
+                <Button variant="ghost" size="icon" onClick={() => onPreview(task)}>
+                  <Eye className="h-4 w-4" />
+                  <span className="sr-only">Preview Task</span>
                 </Button>
               </TableCell>
             </TableRow>
