@@ -63,13 +63,13 @@ export default function NewTaskModal({ open, onOpenChange, onCreated }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-hidden p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
           <DialogDescription>Fill task details and assign the engineer.</DialogDescription>
         </DialogHeader>
 
-        <form className="grid gap-4" onSubmit={onSubmit}>
+        <form className="grid max-h-[calc(90vh-7.5rem)] gap-4 overflow-y-auto pr-1" onSubmit={onSubmit}>
           <div className="grid gap-2">
             <Label htmlFor="cust_name">Customer Name</Label>
             <Input
