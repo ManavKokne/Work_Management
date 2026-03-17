@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { ensureCoreTables } from "@/lib/taskSchema";
 
 export async function GET() {
   try {
+    await ensureCoreTables();
+
     const rows = await query(
       `SELECT task_id, cust_name, address, task_reported_by, reported_datetime, engg_name, status
        FROM tasks

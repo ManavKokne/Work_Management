@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { sendTaskCreatedEmail } from "@/lib/email";
-import { ensureTaskEmailColumn } from "@/lib/taskSchema";
+import { ensureCoreTables, ensureTaskEmailColumn } from "@/lib/taskSchema";
 import { createTaskSchema } from "@/lib/validators";
 
 export async function POST(request) {
@@ -18,6 +18,7 @@ export async function POST(request) {
 
     const { cust_name, address, task_reported_by, engg_name, engg_email } = parsed.data;
 
+    await ensureCoreTables();
     await ensureTaskEmailColumn();
 
     const result = await query(

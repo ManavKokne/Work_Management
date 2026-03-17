@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { updateTaskSchema } from "@/lib/validators";
 import { query, withTransaction } from "@/lib/db";
 import { sendTaskUpdatedEmail } from "@/lib/email";
-import { ensureTaskEmailColumn } from "@/lib/taskSchema";
+import { ensureCoreTables, ensureTaskEmailColumn } from "@/lib/taskSchema";
+import { serializePhotoUrls } from "@/lib/reportPhotos";
 
 export async function POST(request) {
   try {
@@ -17,7 +18,9 @@ export async function POST(request) {
     }
 
     const payload = parsed.data;
+    const serializedPhotos = serializePhotoUrls(payload.photos);
 
+    await ensureCoreTables();
     await ensureTaskEmailColumn();
 
     await withTransaction(async (connection) => {
@@ -33,7 +36,7 @@ export async function POST(request) {
           payload.start_time,
           payload.end_time,
           payload.location,
-          payload.photo || null,
+          serializedPhotos,
           payload.status,
         ]
       );
@@ -64,6 +67,7 @@ export async function POST(request) {
         observation: payload.observation,
         workDone: payload.work_done,
         location: payload.location,
+        photoUrls: payload.photos,
       });
     }
 

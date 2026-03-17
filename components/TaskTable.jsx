@@ -26,12 +26,12 @@ function getPageSize() {
       : Math.min(viewportHeight * 0.6, 560);
 
   const estimatedHeaderHeight = 48;
-  const estimatedRowHeight = 82;
+  const estimatedRowHeight = width < 640 ? 84 : 68;
   const rowsFromHeight = Math.floor((tableHeight - estimatedHeaderHeight) / estimatedRowHeight);
 
   if (width < 640) return Math.max(3, Math.min(5, rowsFromHeight));
-  if (width < 1024) return Math.max(4, Math.min(6, rowsFromHeight));
-  return Math.max(5, Math.min(8, rowsFromHeight));
+  if (width < 1024) return Math.max(4, Math.min(7, rowsFromHeight));
+  return Math.max(5, Math.min(10, rowsFromHeight));
 }
 
 function statusVariant(status) {
@@ -61,6 +61,9 @@ export default function TaskTable({ tasks, onEdit, onPrint, onPreview, loading =
   const safePage = Math.min(page, totalPages);
   const startIndex = (safePage - 1) * pageSize;
   const pageItems = tasks.slice(startIndex, startIndex + pageSize);
+  const hasNoTasks = !loading && tasks.length === 0;
+  const filledRows = loading ? pageSize : hasNoTasks ? 1 : pageItems.length;
+  const fillerRows = Math.max(0, pageSize - filledRows);
 
   function goPrevious() {
     setPage((prev) => Math.max(1, prev - 1));
@@ -72,8 +75,10 @@ export default function TaskTable({ tasks, onEdit, onPrint, onPreview, loading =
 
   return (
     <div className="rounded-md border">
-      <div className="max-h-[min(46dvh,430px)] overflow-auto sm:max-h-[min(54dvh,520px)] lg:max-h-[min(60dvh,560px)]">
-        <Table>
+      <div
+        className="h-[min(46dvh,430px)] overflow-auto sm:h-[min(54dvh,520px)] lg:h-[min(60dvh,560px)]"
+      >
+        <Table className="w-full">
           <TableHeader>
             <TableRow>
               <TableHead>Task ID</TableHead>
@@ -137,11 +142,25 @@ export default function TaskTable({ tasks, onEdit, onPrint, onPreview, loading =
 
                 {tasks.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="h-12 text-center text-muted">
+                    <TableCell colSpan={9} className="h-16 text-center text-muted">
                       No tasks available yet. Create a new task to get started.
                     </TableCell>
                   </TableRow>
                 )}
+
+                {Array.from({ length: fillerRows }).map((_, index) => (
+                  <TableRow key={`filler-${index}`} className="hover:bg-transparent">
+                    <TableCell className="h-16">&nbsp;</TableCell>
+                    <TableCell>&nbsp;</TableCell>
+                    <TableCell>&nbsp;</TableCell>
+                    <TableCell>&nbsp;</TableCell>
+                    <TableCell>&nbsp;</TableCell>
+                    <TableCell>&nbsp;</TableCell>
+                    <TableCell>&nbsp;</TableCell>
+                    <TableCell>&nbsp;</TableCell>
+                    <TableCell>&nbsp;</TableCell>
+                  </TableRow>
+                ))}
               </>
             )}
           </TableBody>

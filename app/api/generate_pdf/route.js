@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { buildDisplayLocation, parseCoordinates, reverseGeocode } from "@/lib/geocode";
+import { ensureCoreTables } from "@/lib/taskSchema";
 
 export async function GET(request) {
   try {
+    await ensureCoreTables();
+
     const { searchParams } = new URL(request.url);
     const taskId = Number(searchParams.get("task_id"));
 
