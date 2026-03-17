@@ -156,11 +156,13 @@ export default function HomePage() {
           </Button>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <p className="py-8 text-center text-sm text-muted">Loading tasks...</p>
-          ) : (
-            <TaskTable tasks={tasks} onEdit={openEdit} onPrint={printTask} onPreview={openPreview} />
-          )}
+          <TaskTable
+            tasks={tasks}
+            loading={loading}
+            onEdit={openEdit}
+            onPrint={printTask}
+            onPreview={openPreview}
+          />
         </CardContent>
       </Card>
 
