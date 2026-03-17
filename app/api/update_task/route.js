@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { updateTaskSchema } from "@/lib/validators";
-import { withTransaction } from "@/lib/db";
+import { query, withTransaction } from "@/lib/db";
+import { sendTaskUpdatedEmail } from "@/lib/email";
+import { ensureTaskEmailColumn } from "@/lib/taskSchema";
 
 export async function POST(request) {
   try {
@@ -15,6 +17,8 @@ export async function POST(request) {
     }
 
     const payload = parsed.data;
+
+    await ensureTaskEmailColumn();
 
     await withTransaction(async (connection) => {
       await connection.execute(
@@ -39,6 +43,29 @@ export async function POST(request) {
         payload.task_id,
       ]);
     });
+
+    const tasks = await query(
+      `SELECT task_id, cust_name, engg_name, engg_email
+       FROM tasks
+       WHERE task_id = ?`,
+      [payload.task_id]
+    );
+
+    const task = tasks[0];
+
+    if (task?.engg_email) {
+      await sendTaskUpdatedEmail({
+        recipient: task.engg_email,
+        taskId: task.task_id,
+        customerName: task.cust_name,
+        engineerName: task.engg_name,
+        status: payload.status,
+        workDate: payload.work_date,
+        observation: payload.observation,
+        workDone: payload.work_done,
+        location: payload.location,
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

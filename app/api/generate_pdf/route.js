@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { buildDisplayLocation, parseCoordinates, reverseGeocode } from "@/lib/geocode";
 
 export async function GET(request) {
   try {
@@ -29,9 +30,22 @@ export async function GET(request) {
       [taskId]
     );
 
+    const latestReport = reportRows[0] || null;
+    let resolvedLocation = latestReport?.location || "";
+
+    if (latestReport?.location) {
+      const coords = parseCoordinates(latestReport.location);
+
+      if (coords) {
+        const geocoded = await reverseGeocode(coords.latitude, coords.longitude);
+        resolvedLocation = buildDisplayLocation(latestReport.location, geocoded.address);
+      }
+    }
+
     return NextResponse.json({
       task: taskRows[0],
-      report: reportRows[0] || null,
+      report: latestReport,
+      resolvedLocation,
       reports: reportRows,
     });
   } catch (error) {

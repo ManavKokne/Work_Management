@@ -26,7 +26,7 @@ This application is designed for internal teams to manage field/service tasks an
 | UI | shadcn-style components (built using Radix primitives) |
 | Icons | lucide-react |
 | Client auth | Firebase Authentication (Email/Password) |
-| File upload | Firebase Storage |
+| File upload | Cloudinary |
 | Database | MySQL |
 | DB client | mysql2/promise |
 | Validation | zod |
@@ -43,7 +43,7 @@ This application is designed for internal teams to manage field/service tasks an
 | `next`, `react`, `react-dom` | Core web application framework/runtime |
 | `tailwindcss` | Utility-first styling system |
 | `lucide-react` | Icon set (Edit/Print/Navbar icons) |
-| `firebase` | Auth + Storage SDK |
+| `firebase` | Auth SDK |
 | `mysql2` | MySQL connection pooling and prepared query execution |
 | `nodemailer` | SMTP email sending for task assignment notifications |
 | `zod` | API input validation and schema safety |
@@ -103,7 +103,7 @@ Relevant files:
 	- `address`
 	- `task_reported_by`
 	- `engg_name`
-	- `engg_email` (email only, not stored in tasks table)
+	- `engg_email` (stored in tasks table)
 - Auto/default values in UI:
 	- reported datetime: system datetime display
 	- status: `Pending`
@@ -158,9 +158,10 @@ Relevant files:
 	- `photo` (jpg/png)
 	- `status` (`Completed`, `Pending`, `To Do`)
 - Save action:
-	- Upload photo to Firebase Storage (if provided)
+	- Upload photo to Cloudinary (if provided)
 	- Insert new row in `reports`
 	- Update task `status` in `tasks`
+	- Send report-updated email to engineer email stored in `tasks`
 	- Wrapped in DB transaction for consistency
 
 Relevant files:
@@ -294,6 +295,10 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 
+# Cloudinary
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
+NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your_unsigned_upload_preset
+
 # SMTP
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
@@ -312,6 +317,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 	task_reported_by VARCHAR(150) DEFAULT NULL,
 	reported_datetime DATETIME DEFAULT CURRENT_TIMESTAMP,
 	engg_name VARCHAR(150) DEFAULT NULL,
+	engg_email VARCHAR(255) DEFAULT NULL,
 	status VARCHAR(50) DEFAULT 'Pending',
 	PRIMARY KEY (task_id)
 );
@@ -355,7 +361,7 @@ Bash:
 cp .env.example .env.local
 ```
 
-3. Fill `.env.local` with your Firebase, MySQL, and SMTP credentials.
+3. Fill `.env.local` with your Firebase auth, Cloudinary, MySQL, and SMTP credentials.
 4. Run SQL schema scripts in MySQL.
 5. Start development server.
 
@@ -388,8 +394,8 @@ npm run dev
 
 ### Photo upload fails
 
-- Ensure Firebase Storage is enabled.
-- Verify storage bucket setting in env.
+- Ensure Cloudinary unsigned upload preset is created.
+- Verify `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` and `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`.
 - Confirm file type is jpg/png.
 
 ### Email not sent

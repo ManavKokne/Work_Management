@@ -11,7 +11,7 @@ import PreviewTaskModal from "@/components/PreviewTaskModal";
 import TaskTable from "@/components/TaskTable";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDateTime } from "@/utils/dateFormatter";
+import { buildServiceReportPrintHtml } from "@/lib/serviceReportPdf";
 
 export default function HomePage() {
   const [tasks, setTasks] = useState([]);
@@ -70,42 +70,36 @@ export default function HomePage() {
         throw new Error(payload.error || "Failed to generate report");
       }
 
-      const report = payload.report;
-
       const container = document.createElement("div");
       container.style.position = "fixed";
       container.style.left = "-9999px";
       container.style.top = "0";
       container.style.width = "794px";
       container.style.background = "#ffffff";
-      container.style.padding = "24px";
-      container.style.fontFamily = "Segoe UI, sans-serif";
-
-      container.innerHTML = `
-        <h1 style="margin:0 0 8px;font-size:20px;color:#0f3a75;">Intense Technologies - Task Report</h1>
-        <p style="margin:0 0 16px;color:#475569;">Generated on ${new Date().toLocaleString()}</p>
-        <hr style="border:0;border-top:1px solid #dbe3ef;margin:0 0 16px;" />
-        <h2 style="font-size:16px;margin:0 0 8px;">Task Details</h2>
-        <p><strong>Task ID:</strong> ${payload.task.task_id}</p>
-        <p><strong>Customer:</strong> ${payload.task.cust_name}</p>
-        <p><strong>Address:</strong> ${payload.task.address}</p>
-        <p><strong>Reported By:</strong> ${payload.task.task_reported_by || "-"}</p>
-        <p><strong>Engineer Name:</strong> ${payload.task.engg_name || "-"}</p>
-        <p><strong>Reported Datetime:</strong> ${formatDateTime(payload.task.reported_datetime)}</p>
-        <p><strong>Status:</strong> ${payload.task.status || "Pending"}</p>
-        <hr style="border:0;border-top:1px solid #dbe3ef;margin:16px 0;" />
-        <h2 style="font-size:16px;margin:0 0 8px;">Latest Report Entry</h2>
-        <p><strong>Observation:</strong> ${report?.observation || "-"}</p>
-        <p><strong>Work Done:</strong> ${report?.work_done || "-"}</p>
-        <p><strong>Work Date:</strong> ${report?.work_date || "-"}</p>
-        <p><strong>Start Time:</strong> ${report?.start_time || "-"}</p>
-        <p><strong>End Time:</strong> ${report?.end_time || "-"}</p>
-        <p><strong>Location:</strong> ${report?.location || "-"}</p>
-        <p><strong>Photo URL:</strong> ${report?.photo || "-"}</p>
-      `;
+      container.style.padding = "0";
+      container.style.fontFamily = "Times New Roman, serif";
+      container.innerHTML = buildServiceReportPrintHtml(payload);
 
       document.body.appendChild(container);
-      const canvas = await html2canvas(container, { scale: 2 });
+
+      // Ensure logo image is loaded before canvas capture.
+      const images = Array.from(container.querySelectorAll("img"));
+      await Promise.all(
+        images.map(
+          (img) =>
+            new Promise((resolve) => {
+              if (img.complete) {
+                resolve();
+                return;
+              }
+
+              img.onload = () => resolve();
+              img.onerror = () => resolve();
+            })
+        )
+      );
+
+      const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
       document.body.removeChild(container);
 
       const imageData = canvas.toDataURL("image/png");
@@ -123,7 +117,7 @@ export default function HomePage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6 md:py-8">
-      <section className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* <section className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Tasks</CardDescription>
@@ -148,7 +142,7 @@ export default function HomePage() {
             <CardTitle className="text-2xl">{dashboardSummary.todo}</CardTitle>
           </CardHeader>
         </Card>
-      </section>
+      </section> */}
 
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -21,7 +21,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { storage } from "@/lib/firebase";
 import { formatDateForInput, formatTimeForInput } from "@/utils/dateFormatter";
 
 function getCurrentTime() {
@@ -44,15 +43,6 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
   const [form, setForm] = useState(defaultState);
   const [saving, setSaving] = useState(false);
 
-  function shouldSkipDirectUploadInDev() {
-    const directUploadEnabled =
-      process.env.NEXT_PUBLIC_ENABLE_DIRECT_STORAGE_UPLOAD === "true";
-    const host = window.location.hostname;
-    const isLocalHost = host === "localhost" || host === "127.0.0.1";
-
-    return isLocalHost && !directUploadEnabled;
-  }
-
   useEffect(() => {
     if (!open || !task) return;
 
@@ -74,11 +64,26 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
     }
 
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
+      async ({ coords }) => {
+        const coordinatePair = `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`;
+
         setForm((prev) => ({
           ...prev,
-          location: `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`,
+          location: coordinatePair,
         }));
+
+        try {
+          const response = await fetch(
+            `/api/reverse_geocode?lat=${coords.latitude}&long=${coords.longitude}`
+          );
+          const payload = await response.json();
+
+          if (response.ok && payload.locationText) {
+            setForm((prev) => ({ ...prev, location: payload.locationText }));
+          }
+        } catch {
+          // Keep coordinate pair when reverse geocoding is unavailable.
+        }
       },
       () => {
         setForm((prev) => ({ ...prev, location: "Location unavailable" }));
@@ -115,12 +120,30 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
       return "";
     }
 
-    const safeName = form.photoFile.name.replace(/\s+/g, "-").toLowerCase();
-    const path = `reports/${task.task_id}/${Date.now()}-${safeName}`;
-    const uploadRef = storage.ref(path);
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
-    await uploadRef.put(form.photoFile);
-    return uploadRef.getDownloadURL();
+    if (!cloudName || !uploadPreset) {
+      throw new Error("Cloudinary is not configured. Set cloud name and upload preset.");
+    }
+
+    const formData = new FormData();
+    formData.append("file", form.photoFile);
+    formData.append("upload_preset", uploadPreset);
+    formData.append("folder", `reports/${task.task_id}`);
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: "POST",
+      body: formData,
+    });
+
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload?.error?.message || "Cloudinary upload failed");
+    }
+
+    return payload.secure_url || payload.url || "";
   }
 
   async function onSubmit(event) {
@@ -132,18 +155,10 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
       let photoUrl = "";
 
       if (form.photoFile) {
-        if (shouldSkipDirectUploadInDev()) {
-          toast.info(
-            "Photo upload is disabled on localhost to avoid Firebase CORS errors. Enable NEXT_PUBLIC_ENABLE_DIRECT_STORAGE_UPLOAD=true after configuring bucket CORS."
-          );
-        } else {
-          try {
-            photoUrl = await uploadPhotoIfNeeded();
-          } catch {
-            toast.warning(
-              "Photo upload was blocked (CORS). Task details will be saved without the photo."
-            );
-          }
+        try {
+          photoUrl = await uploadPhotoIfNeeded();
+        } catch {
+          toast.warning("Photo upload failed. Task details will be saved without the photo.");
         }
       }
 
