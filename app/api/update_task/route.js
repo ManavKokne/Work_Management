@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { updateTaskSchema } from "@/lib/validators";
 import { query, withTransaction } from "@/lib/db";
 import { sendTaskUpdatedEmail } from "@/lib/email";
-import { ensureCoreTables, ensureTaskEmailColumn } from "@/lib/taskSchema";
+import {
+  ensureCoreTables,
+  ensureTaskEmailColumn,
+  ensureTaskReporterEmailColumn,
+  ensureReportReporterEmailColumn,
+} from "@/lib/taskSchema";
 import { serializePhotoUrls } from "@/lib/reportPhotos";
 
 export async function POST(request) {
@@ -22,12 +27,14 @@ export async function POST(request) {
 
     await ensureCoreTables();
     await ensureTaskEmailColumn();
+    await ensureTaskReporterEmailColumn();
+    await ensureReportReporterEmailColumn();
 
-    await withTransaction(async (connection) => {
-      await connection.execute(
+    const reportId = await withTransaction(async (connection) => {
+      const [insertResult] = await connection.execute(
         `INSERT INTO reports
-           (task_id, observation, work_done, work_date, start_time, end_time, location, photo, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (task_id, observation, work_done, work_date, start_time, end_time, location, reporter_email, photo, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           payload.task_id,
           payload.observation,
@@ -36,19 +43,27 @@ export async function POST(request) {
           payload.start_time,
           payload.end_time,
           payload.location,
+          payload.reporter_email,
           serializedPhotos,
           payload.status,
         ]
       );
 
+      await connection.execute(`UPDATE tasks SET reporter_email = ? WHERE task_id = ?`, [
+        payload.reporter_email,
+        payload.task_id,
+      ]);
+
       await connection.execute(`UPDATE tasks SET status = ? WHERE task_id = ?`, [
         payload.status,
         payload.task_id,
       ]);
+
+      return Number(insertResult?.insertId || 0);
     });
 
     const tasks = await query(
-      `SELECT task_id, cust_name, engg_name, engg_email
+      `SELECT task_id, cust_name, engg_name, engg_email, reporter_email
        FROM tasks
        WHERE task_id = ?`,
       [payload.task_id]
@@ -56,10 +71,11 @@ export async function POST(request) {
 
     const task = tasks[0];
 
-    if (task?.engg_email) {
+    if (task?.engg_email || task?.reporter_email) {
       await sendTaskUpdatedEmail({
-        recipient: task.engg_email,
+        recipients: [task.engg_email, payload.reporter_email || task.reporter_email],
         taskId: task.task_id,
+        reportId,
         customerName: task.cust_name,
         engineerName: task.engg_name,
         status: payload.status,

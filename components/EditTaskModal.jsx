@@ -35,12 +35,19 @@ const defaultState = {
   start_time: "",
   end_time: "",
   location: "Fetching...",
+  reporter_email: "",
   status: "Pending",
   photoFiles: [],
   existingPhotos: [],
 };
 
-export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
+export default function EditTaskModal({
+  open,
+  onOpenChange,
+  task,
+  onUpdated,
+  reporterEmailOptions = [],
+}) {
   const [form, setForm] = useState(defaultState);
   const [saving, setSaving] = useState(false);
 
@@ -59,6 +66,7 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
         start_time: formatTimeForInput(task.reported_datetime),
         end_time: nowEndTime,
         location: "Fetching...",
+        reporter_email: task.reporter_email || "",
         status: task.status || "Pending",
         photoFiles: [],
         existingPhotos: [],
@@ -85,6 +93,7 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
             start_time: latestReport.start_time || formatTimeForInput(task.reported_datetime),
             end_time: nowEndTime,
             location: latestReport.location || "Location unavailable",
+            reporter_email: latestReport.reporter_email || task.reporter_email || "",
             status: latestReport.status || task.status || "Pending",
             photoFiles: [],
             existingPhotos: parsePhotoUrls(latestReport.photo),
@@ -227,6 +236,7 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
         start_time: form.start_time,
         end_time: form.end_time,
         location: form.location,
+        reporter_email: form.reporter_email,
         photos,
         status: form.status,
       };
@@ -259,7 +269,7 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] w-[96vw] max-w-5xl overflow-hidden p-4 sm:p-6">
         <DialogHeader className="pr-6">
-          <DialogTitle>Edit Task #{task.task_id}</DialogTitle>
+          <DialogTitle>Update Task #{task.task_id}</DialogTitle>
           <DialogDescription>
             Submit engineer report and update task status.
           </DialogDescription>
@@ -286,6 +296,30 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
             <div className="grid gap-2">
               <Label>Engineer Name</Label>
               <Input value={task.engg_name || ""} disabled />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="reporter_email">Reporter Email</Label>
+              <Input
+                id="reporter_email"
+                name="reporter_email"
+                type="email"
+                list="reporter-email-options"
+                value={form.reporter_email}
+                onChange={onFieldChange}
+                required
+              />
+              <datalist id="reporter-email-options">
+                {reporterEmailOptions.map((email) => (
+                  <option key={email} value={email} />
+                ))}
+              </datalist>
+            </div>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2 sm:gap-4">
+            <div className="grid gap-2">
+              <Label>Engineer Email</Label>
+              <Input value={task.engg_email || "-"} disabled />
             </div>
             <div className="grid gap-2">
               <Label>Reported Datetime</Label>
@@ -331,7 +365,7 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
           <div className="grid gap-2 sm:grid-cols-3 sm:gap-4">
             <div className="grid gap-2">
               <Label htmlFor="start_time">Start Time</Label>
-              <Input id="start_time" name="start_time" value={form.start_time} disabled />
+              <Input id="start_time" name="start_time" type="time" value={form.start_time} onChange={onFieldChange} required />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="end_time">End Time</Label>
@@ -356,7 +390,7 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
 
           <DialogFooter>
             <Button type="submit" disabled={saving}>
-              {saving ? "Updating..." : "Edit"}
+              {saving ? "Updating..." : "Update"}
             </Button>
           </DialogFooter>
         </form>

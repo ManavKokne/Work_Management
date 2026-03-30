@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { buildDisplayLocation, parseCoordinates, reverseGeocode } from "@/lib/geocode";
-import { ensureCoreTables } from "@/lib/taskSchema";
+import { ensureCoreTables, ensureReportReporterEmailColumn } from "@/lib/taskSchema";
 
 export async function GET(request) {
   try {
     await ensureCoreTables();
+    await ensureReportReporterEmailColumn();
 
     const { searchParams } = new URL(request.url);
     const taskId = Number(searchParams.get("task_id"));
@@ -26,7 +27,7 @@ export async function GET(request) {
     }
 
     const reportRows = await query(
-      `SELECT report_id, task_id, observation, work_done, work_date, start_time, end_time, location, photo, status
+      `SELECT report_id, task_id, observation, work_done, work_date, start_time, end_time, location, reporter_email, photo, status
        FROM reports
        WHERE task_id = ?
        ORDER BY report_id DESC`,
