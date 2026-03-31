@@ -18,7 +18,7 @@ export async function GET(request) {
     const taskRows = await query(
       `SELECT task_id, cust_name, address, task_reported_by, reported_datetime, engg_name, status
        FROM tasks
-       WHERE task_id = ?`,
+       WHERE task_id = $1`,
       [taskId]
     );
 
@@ -29,7 +29,7 @@ export async function GET(request) {
     const reportRows = await query(
       `SELECT report_id, task_id, observation, work_done, work_date, start_time, end_time, location, reporter_email, photo, status
        FROM reports
-       WHERE task_id = ?
+       WHERE task_id = $1
        ORDER BY report_id DESC`,
       [taskId]
     );

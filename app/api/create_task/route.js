@@ -26,18 +26,19 @@ export async function POST(request) {
     await ensureTaskEmailColumn();
     await ensureTaskReporterEmailColumn();
 
-    const result = await query(
+    const insertedRows = await query(
       `INSERT INTO tasks (cust_name, address, task_reported_by, reporter_email, engg_name, engg_email, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING task_id`,
       [cust_name, address, task_reported_by, reporter_email || null, engg_name, engg_email, "Pending"]
     );
 
-    const taskId = result.insertId;
+    const taskId = insertedRows[0]?.task_id;
 
     const rows = await query(
       `SELECT task_id, cust_name, address, task_reported_by, reporter_email, engg_name, engg_email, reported_datetime
        FROM tasks
-       WHERE task_id = ?`,
+       WHERE task_id = $1`,
       [taskId]
     );
 
