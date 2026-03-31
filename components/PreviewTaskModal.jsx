@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { parsePhotoUrls } from "@/lib/reportPhotos";
 import { formatDateTime } from "@/utils/dateFormatter";
 
 function fieldValue(value) {
@@ -63,6 +64,7 @@ export default function PreviewTaskModal({ open, onOpenChange, task }) {
 
   const previewTask = data.task || task;
   const previewReport = data.report;
+  const previewPhotos = parsePhotoUrls(previewReport?.photo);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -135,15 +137,20 @@ export default function PreviewTaskModal({ open, onOpenChange, task }) {
               </section>
 
               <section className="space-y-2">
-                <h3 className="text-sm font-semibold text-foreground">Photo</h3>
-                {previewReport?.photo ? (
-                  <img
-                    src={previewReport.photo}
-                    alt={`Task ${task?.task_id} report`}
-                    className="max-h-80 w-full rounded-md border border-border object-contain"
-                  />
+                <h3 className="text-sm font-semibold text-foreground">Photos</h3>
+                {previewPhotos.length > 0 ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {previewPhotos.map((photoUrl, index) => (
+                      <img
+                        key={`${photoUrl}-${index}`}
+                        src={photoUrl}
+                        alt={`Task ${task?.task_id} report ${index + 1}`}
+                        className="max-h-72 w-full rounded-md border border-border object-contain"
+                      />
+                    ))}
+                  </div>
                 ) : (
-                  <p className="text-sm text-muted">No photo uploaded.</p>
+                  <p className="text-sm text-muted">No photos uploaded.</p>
                 )}
               </section>
             </>

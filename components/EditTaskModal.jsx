@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { parsePhotoUrls } from "@/lib/reportPhotos";
 import { formatDateForInput, formatTimeForInput } from "@/utils/dateFormatter";
 
 function getCurrentTime() {
@@ -34,61 +35,116 @@ const defaultState = {
   start_time: "",
   end_time: "",
   location: "Fetching...",
-  photo: "",
+  reporter_email: "",
   status: "Pending",
-  photoFile: null,
+  photoFiles: [],
+  existingPhotos: [],
 };
 
-export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
+export default function EditTaskModal({
+  open,
+  onOpenChange,
+  task,
+  onUpdated,
+  reporterEmailOptions = [],
+}) {
   const [form, setForm] = useState(defaultState);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open || !task) return;
 
-    setForm({
-      observation: "",
-      work_done: "",
-      work_date: formatDateForInput(new Date()),
-      start_time: formatTimeForInput(task.reported_datetime),
-      end_time: getCurrentTime(),
-      location: "Fetching...",
-      photo: "",
-      status: task.status || "Pending",
-      photoFile: null,
-    });
+    let ignore = false;
 
-    if (!navigator.geolocation) {
-      setForm((prev) => ({ ...prev, location: "Geolocation unavailable" }));
-      return;
+    async function prefill() {
+      const nowEndTime = getCurrentTime();
+
+      setForm({
+        observation: "",
+        work_done: "",
+        work_date: formatDateForInput(new Date()),
+        start_time: formatTimeForInput(task.reported_datetime),
+        end_time: nowEndTime,
+        location: "Fetching...",
+        reporter_email: task.reporter_email || "",
+        status: task.status || "Pending",
+        photoFiles: [],
+        existingPhotos: [],
+      });
+
+      try {
+        const response = await fetch(`/api/generate_pdf?task_id=${task.task_id}`, {
+          cache: "no-store",
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload?.error || "Failed to fetch latest report");
+        }
+
+        const latestReport = payload.report;
+        if (ignore) return;
+
+        if (latestReport) {
+          setForm({
+            observation: latestReport.observation || "",
+            work_done: latestReport.work_done || "",
+            work_date: formatDateForInput(latestReport.work_date || new Date()),
+            start_time: latestReport.start_time || formatTimeForInput(task.reported_datetime),
+            end_time: nowEndTime,
+            location: latestReport.location || "Location unavailable",
+            reporter_email: latestReport.reporter_email || task.reporter_email || "",
+            status: latestReport.status || task.status || "Pending",
+            photoFiles: [],
+            existingPhotos: parsePhotoUrls(latestReport.photo),
+          });
+          return;
+        }
+      } catch {
+        // Fall back to a fresh entry with current location.
+      }
+
+      if (!navigator.geolocation) {
+        setForm((prev) => ({ ...prev, location: "Geolocation unavailable" }));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async ({ coords }) => {
+          const coordinatePair = `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`;
+
+          if (ignore) return;
+
+          setForm((prev) => ({
+            ...prev,
+            location: coordinatePair,
+          }));
+
+          try {
+            const response = await fetch(
+              `/api/reverse_geocode?lat=${coords.latitude}&long=${coords.longitude}`
+            );
+            const payload = await response.json();
+
+            if (response.ok && payload.locationText && !ignore) {
+              setForm((prev) => ({ ...prev, location: payload.locationText }));
+            }
+          } catch {
+            // Keep coordinate pair when reverse geocoding is unavailable.
+          }
+        },
+        () => {
+          if (ignore) return;
+          setForm((prev) => ({ ...prev, location: "Location unavailable" }));
+        }
+      );
     }
 
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        const coordinatePair = `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`;
+    prefill();
 
-        setForm((prev) => ({
-          ...prev,
-          location: coordinatePair,
-        }));
-
-        try {
-          const response = await fetch(
-            `/api/reverse_geocode?lat=${coords.latitude}&long=${coords.longitude}`
-          );
-          const payload = await response.json();
-
-          if (response.ok && payload.locationText) {
-            setForm((prev) => ({ ...prev, location: payload.locationText }));
-          }
-        } catch {
-          // Keep coordinate pair when reverse geocoding is unavailable.
-        }
-      },
-      () => {
-        setForm((prev) => ({ ...prev, location: "Location unavailable" }));
-      }
-    );
+    return () => {
+      ignore = true;
+    };
   }, [open, task]);
 
   function onFieldChange(event) {
@@ -100,26 +156,23 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
   }
 
   function onPhotoChange(event) {
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files || []);
 
-    if (!file) {
-      setForm((prev) => ({ ...prev, photoFile: null }));
+    if (!files.length) {
+      setForm((prev) => ({ ...prev, photoFiles: [] }));
       return;
     }
 
-    if (!["image/jpeg", "image/png"].includes(file.type)) {
+    const hasInvalidFile = files.some((file) => !["image/jpeg", "image/png"].includes(file.type));
+    if (hasInvalidFile) {
       toast.error("Only JPG and PNG files are allowed");
       return;
     }
 
-    setForm((prev) => ({ ...prev, photoFile: file }));
+    setForm((prev) => ({ ...prev, photoFiles: files }));
   }
 
-  async function uploadPhotoIfNeeded() {
-    if (!form.photoFile) {
-      return "";
-    }
-
+  async function uploadSinglePhoto(file) {
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
@@ -128,7 +181,7 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
     }
 
     const formData = new FormData();
-    formData.append("file", form.photoFile);
+    formData.append("file", file);
     formData.append("upload_preset", uploadPreset);
     formData.append("folder", `reports/${task.task_id}`);
 
@@ -146,21 +199,34 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
     return payload.secure_url || payload.url || "";
   }
 
+  async function uploadPhotosIfNeeded() {
+    if (!form.photoFiles.length) {
+      return [];
+    }
+
+    const uploaded = await Promise.all(form.photoFiles.map((file) => uploadSinglePhoto(file)));
+    return uploaded.filter(Boolean);
+  }
+
   async function onSubmit(event) {
     event.preventDefault();
     if (!task) return;
 
     setSaving(true);
     try {
-      let photoUrl = "";
+      let newPhotoUrls = [];
 
-      if (form.photoFile) {
+      if (form.photoFiles.length) {
         try {
-          photoUrl = await uploadPhotoIfNeeded();
+          newPhotoUrls = await uploadPhotosIfNeeded();
         } catch {
-          toast.warning("Photo upload failed. Task details will be saved without the photo.");
+          toast.warning("Image upload failed. Report details will be saved with existing photos only.");
         }
       }
+
+      const photos = form.photoFiles.length
+        ? [...form.existingPhotos, ...newPhotoUrls]
+        : form.existingPhotos;
 
       const payload = {
         task_id: task.task_id,
@@ -170,7 +236,8 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
         start_time: form.start_time,
         end_time: form.end_time,
         location: form.location,
-        photo: photoUrl,
+        reporter_email: form.reporter_email,
+        photos,
         status: form.status,
       };
 
@@ -202,7 +269,7 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] w-[96vw] max-w-5xl overflow-hidden p-4 sm:p-6">
         <DialogHeader className="pr-6">
-          <DialogTitle>Edit Task #{task.task_id}</DialogTitle>
+          <DialogTitle>Update Task #{task.task_id}</DialogTitle>
           <DialogDescription>
             Submit engineer report and update task status.
           </DialogDescription>
@@ -229,6 +296,30 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
             <div className="grid gap-2">
               <Label>Engineer Name</Label>
               <Input value={task.engg_name || ""} disabled />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="reporter_email">Reporter Email</Label>
+              <Input
+                id="reporter_email"
+                name="reporter_email"
+                type="email"
+                list="reporter-email-options"
+                value={form.reporter_email}
+                onChange={onFieldChange}
+                required
+              />
+              <datalist id="reporter-email-options">
+                {reporterEmailOptions.map((email) => (
+                  <option key={email} value={email} />
+                ))}
+              </datalist>
+            </div>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2 sm:gap-4">
+            <div className="grid gap-2">
+              <Label>Engineer Email</Label>
+              <Input value={task.engg_email || "-"} disabled />
             </div>
             <div className="grid gap-2">
               <Label>Reported Datetime</Label>
@@ -274,7 +365,7 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
           <div className="grid gap-2 sm:grid-cols-3 sm:gap-4">
             <div className="grid gap-2">
               <Label htmlFor="start_time">Start Time</Label>
-              <Input id="start_time" name="start_time" value={form.start_time} disabled />
+              <Input id="start_time" name="start_time" type="time" value={form.start_time} onChange={onFieldChange} required />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="end_time">End Time</Label>
@@ -287,13 +378,19 @@ export default function EditTaskModal({ open, onOpenChange, task, onUpdated }) {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="photo">Photo (.jpg, .png)</Label>
-            <Input id="photo" name="photo" type="file" accept="image/jpeg,image/png" onChange={onPhotoChange} />
+            <Label htmlFor="photo">Photos (.jpg, .png)</Label>
+            <Input id="photo" name="photo" type="file" accept="image/jpeg,image/png" multiple onChange={onPhotoChange} />
+            {form.existingPhotos.length > 0 && (
+              <p className="text-xs text-muted">Existing photos: {form.existingPhotos.length}</p>
+            )}
+            {form.photoFiles.length > 0 && (
+              <p className="text-xs text-muted">Selected new photos: {form.photoFiles.length}</p>
+            )}
           </div>
 
           <DialogFooter>
             <Button type="submit" disabled={saving}>
-              {saving ? "Updating..." : "Edit"}
+              {saving ? "Updating..." : "Update"}
             </Button>
           </DialogFooter>
         </form>

@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { sendTaskCreatedEmail } from "@/lib/email";
-import { ensureTaskEmailColumn } from "@/lib/taskSchema";
+import {
+  ensureCoreTables,
+  ensureTaskEmailColumn,
+  ensureTaskReporterEmailColumn,
+} from "@/lib/taskSchema";
 import { createTaskSchema } from "@/lib/validators";
 
 export async function POST(request) {
@@ -16,20 +20,22 @@ export async function POST(request) {
       );
     }
 
-    const { cust_name, address, task_reported_by, engg_name, engg_email } = parsed.data;
+    const { cust_name, address, task_reported_by, reporter_email, engg_name, engg_email } = parsed.data;
 
+    await ensureCoreTables();
     await ensureTaskEmailColumn();
+    await ensureTaskReporterEmailColumn();
 
     const result = await query(
-      `INSERT INTO tasks (cust_name, address, task_reported_by, engg_name, engg_email, status)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [cust_name, address, task_reported_by, engg_name, engg_email, "Pending"]
+      `INSERT INTO tasks (cust_name, address, task_reported_by, reporter_email, engg_name, engg_email, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [cust_name, address, task_reported_by, reporter_email || null, engg_name, engg_email, "Pending"]
     );
 
     const taskId = result.insertId;
 
     const rows = await query(
-      `SELECT task_id, cust_name, address, task_reported_by, engg_name, engg_email, reported_datetime
+      `SELECT task_id, cust_name, address, task_reported_by, reporter_email, engg_name, engg_email, reported_datetime
        FROM tasks
        WHERE task_id = ?`,
       [taskId]
@@ -38,7 +44,7 @@ export async function POST(request) {
     const task = rows[0];
 
     await sendTaskCreatedEmail({
-      recipient: task.engg_email || engg_email,
+      recipients: [task.engg_email || engg_email, task.reporter_email || reporter_email],
       taskId: task.task_id,
       customerName: task.cust_name,
       address: task.address,

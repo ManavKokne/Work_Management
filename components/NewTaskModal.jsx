@@ -21,9 +21,10 @@ const defaultForm = {
   task_reported_by: "",
   engg_name: "",
   engg_email: "",
+  reporter_email: "",
 };
 
-export default function NewTaskModal({ open, onOpenChange, onCreated }) {
+export default function NewTaskModal({ open, onOpenChange, onCreated, enggEmailOptions = [] }) {
   const [form, setForm] = useState(defaultForm);
   const [submitting, setSubmitting] = useState(false);
 
@@ -122,10 +123,16 @@ export default function NewTaskModal({ open, onOpenChange, onCreated }) {
                 id="engg_email"
                 name="engg_email"
                 type="email"
+                list="engg-email-options"
                 value={form.engg_email}
                 onChange={onChange}
                 required
               />
+              <datalist id="engg-email-options">
+                {enggEmailOptions.map((email) => (
+                  <option key={email} value={email} />
+                ))}
+              </datalist>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="reported_datetime">Reported Datetime</Label>
