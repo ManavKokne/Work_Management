@@ -31,10 +31,11 @@ export async function POST(request) {
     await ensureReportReporterEmailColumn();
 
     const reportId = await withTransaction(async (connection) => {
-      const [insertResult] = await connection.execute(
+      const insertResult = await connection.query(
         `INSERT INTO reports
            (task_id, observation, work_done, work_date, start_time, end_time, location, reporter_email, photo, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING report_id`,
         [
           payload.task_id,
           payload.observation,
@@ -49,23 +50,23 @@ export async function POST(request) {
         ]
       );
 
-      await connection.execute(`UPDATE tasks SET reporter_email = ? WHERE task_id = ?`, [
+      await connection.query(`UPDATE tasks SET reporter_email = $1 WHERE task_id = $2`, [
         payload.reporter_email,
         payload.task_id,
       ]);
 
-      await connection.execute(`UPDATE tasks SET status = ? WHERE task_id = ?`, [
+      await connection.query(`UPDATE tasks SET status = $1 WHERE task_id = $2`, [
         payload.status,
         payload.task_id,
       ]);
 
-      return Number(insertResult?.insertId || 0);
+      return Number(insertResult.rows?.[0]?.report_id || 0);
     });
 
     const tasks = await query(
       `SELECT task_id, cust_name, engg_name, engg_email, reporter_email
        FROM tasks
-       WHERE task_id = ?`,
+       WHERE task_id = $1`,
       [payload.task_id]
     );
 
