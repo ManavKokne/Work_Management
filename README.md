@@ -1,291 +1,130 @@
 # Intense Technologies Task Manager
 
-Full-stack internal Task Management system built with Next.js App Router. This project supports secure login, task creation, engineer update reporting, email notification, image upload, and PDF report generation.
+Internal task and service-report management application built on Next.js App Router. It supports Firebase login, protected dashboards, task creation, report updates with multi-image uploads, email notifications, and PDF generation.
 
-## 1. Project Overview
+## Project Overview
 
-This application is designed for internal teams to manage field/service tasks and engineer reports with a simple, professional dashboard.
+The application is used by internal teams to track service tasks end-to-end.
 
-### Core user journey
+Core flow:
 
-1. User logs in with Firebase Email/Password credentials.
-2. User lands on protected dashboard home page.
-3. User creates task from New Task modal.
-4. Task is stored in MySQL and email notification is sent to engineer email.
-5. User edits task to submit report details.
-6. Report row is created, task status is updated.
-7. User can generate a PDF from task + report data.
+1. User signs in with Firebase Email/Password.
+2. User works inside protected routes.
+3. User creates a task and assigns an engineer.
+4. Engineer/task updates are stored in PostgreSQL.
+5. Report updates can include multiple uploaded images.
+6. Notification emails are sent to engineer, reporter, and configured admins.
+7. Task + report data can be exported as PDF.
 
-## 2. Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Framework | Next.js 16 (App Router) |
 | Language | JavaScript |
 | Styling | Tailwind CSS v4 |
-| UI | shadcn-style components (built using Radix primitives) |
+| UI primitives | Radix-based UI components |
 | Icons | lucide-react |
-| Client auth | Firebase Authentication (Email/Password) |
-| File upload | Cloudinary |
-| Database | MySQL |
-| DB client | mysql2/promise |
+| Auth | Firebase Authentication (Email/Password) |
+| Database | PostgreSQL (Supabase-managed) |
+| DB client | pg (Pool) |
 | Validation | zod |
+| File upload | Cloudinary (unsigned upload preset) |
 | Email | nodemailer |
-| PDF | jspdf + html2canvas |
-| Notifications | sonner |
+| PDF export | jspdf + html2canvas |
+| Toasts | sonner |
 
-## 3. Dependency Details
+## Current Feature Set
 
-### Runtime dependencies (`dependencies`)
+### Authentication and Access Control
 
-| Package | Why it is used |
-|---|---|
-| `next`, `react`, `react-dom` | Core web application framework/runtime |
-| `tailwindcss` | Utility-first styling system |
-| `lucide-react` | Icon set (Edit/Print/Navbar icons) |
-| `firebase` | Auth SDK |
-| `mysql2` | MySQL connection pooling and prepared query execution |
-| `nodemailer` | SMTP email sending for task assignment notifications |
-| `zod` | API input validation and schema safety |
-| `jspdf`, `html2canvas` | Render and export PDF report from task data |
-| `sonner` | Toast notifications for success/error states |
-| `@radix-ui/react-dialog` | Modal primitives (New/Edit forms) |
-| `@radix-ui/react-select` | Accessible select dropdown (status field) |
-| `@radix-ui/react-label` | Accessible form labels |
-| `@radix-ui/react-slot` | Component composition helper |
-| `class-variance-authority` | Style variant patterns (`button`, `badge`) |
-| `clsx`, `tailwind-merge` | Classname composition utility |
+- `/login` is public.
+- Protected pages are wrapped with `AuthGuard`.
+- Session state is tracked using Firebase `onAuthStateChanged`.
+- Sign-out is available in the navbar.
 
-### Development dependencies (`devDependencies`)
+### Dashboard and Task List
 
-| Package | Why it is used |
-|---|---|
-| `eslint`, `eslint-config-next` | Code linting and best-practice enforcement |
-| `@tailwindcss/postcss` | Tailwind processing via PostCSS |
-| `babel-plugin-react-compiler` | React compiler optimization plugin from template |
+- Main dashboard page lists tasks sorted by latest reported date/time.
+- Filters are available in a right-side drawer.
+- Supported filters include task ID, customer, reported by, engineer, status, and reported date.
+- Edit and Print actions are available per task row.
+- Preview modal is available to inspect the latest report and photos.
 
-## 4. Implemented Features
+### Task Creation
 
-## 4.1 Authentication
+- New Task modal captures customer, address, reported by, engineer name, engineer email, and optional reporter email.
+- Task is saved with `Pending` status by default.
+- API validates payload with zod before insert.
+- Task assignment email is sent after successful creation.
 
-- Only `/login` is public.
-- No signup page is provided.
-- Login uses Firebase Email/Password:
-	- `auth.signInWithEmailAndPassword(email, password)`
-- Session is tracked via `onAuthStateChanged`.
-- Protected routes use `AuthGuard` to redirect unauthenticated users back to `/login`.
-- Sign-out is implemented with:
-	- `firebase.auth().signOut()`
+### Task Update and Report Submission
 
-Relevant files:
-- `app/login/page.js`
-- `components/AuthGuard.jsx`
-- `hooks/useAuth.js`
-- `lib/firebase.js`
+- Edit modal pre-fills from the latest report entry when available.
+- Captures observation, work done, work date, status, start/end time, location, and reporter email.
+- Supports multi-image uploads to Cloudinary.
+- Stores report update in `reports` and updates task status in `tasks` within a DB transaction.
+- Sends report update notification email with image links/previews.
 
-## 4.2 Navbar and layout
+### PDF and Geolocation
 
-- Navbar appears on protected routes only.
-- Left: company label `Intense Technologies`.
-- Center: `Home`, `Summary`, `Predictions` (all route to `/` currently).
-- Right: logged-in user email and Sign Out button.
-- Responsive behavior for small and large screens.
+- PDF endpoint collects task + latest report data for print/export.
+- Browser-side PDF generation uses HTML template capture (`html2canvas`) and `jsPDF`.
+- Reverse geocoding endpoint converts coordinates to readable location text.
 
-Relevant files:
-- `app/(protected)/layout.js`
-- `components/Navbar.jsx`
+### Placeholder Pages
 
-## 4.3 New Task workflow
+- `/summary` and `/predictions` currently exist as placeholder pages.
 
-- `New Task` button opens modal form.
-- Captured fields:
-	- `cust_name`
-	- `address`
-	- `task_reported_by`
-	- `engg_name`
-	- `engg_email` (stored in tasks table)
-- Auto/default values in UI:
-	- reported datetime: system datetime display
-	- status: `Pending`
-- Backend insert flow:
-	- Validate request with zod
-	- Insert into `tasks`
-	- Read inserted row
-	- Send engineer email notification
+## Database Implementation
 
-Relevant files:
-- `components/NewTaskModal.jsx`
-- `app/api/create_task/route.js`
-- `lib/email.js`
-- `lib/validators.js`
+The backend uses PostgreSQL through `pg` with `DATABASE_URL`.
 
-## 4.4 Task list/table
+Connection behavior in `lib/db.js` includes:
 
-- Tasks rendered in a table format.
-- Table columns:
-	- Task ID
-	- Customer Name
-	- Reported By
-	- Engineer Name
-	- Reported Datetime
-	- Status
-	- Edit icon
-	- Print icon
-- Sorted by newest first:
-	- `ORDER BY reported_datetime DESC`
+- URL validation and placeholder-host guardrails.
+- Supabase-compatible SSL settings.
+- Pooled connections with keepalive and timeout tuning.
+- Retry handling for transient DNS/network errors.
+- Explicit transaction helper for multi-step writes.
 
-Relevant files:
-- `components/TaskTable.jsx`
-- `app/api/get_tasks/route.js`
-
-## 4.5 Edit Task/report submission workflow
-
-- Edit icon opens edit modal per task.
-- Disabled pre-filled task fields:
-	- customer name
-	- address
-	- reported by
-	- engineer name
-	- reported datetime
-- Auto-generated disabled fields:
-	- `start_time` from task `reported_datetime`
-	- `end_time` from system time
-	- `location` from browser geolocation
-- Editable fields:
-	- `observation`
-	- `work_done`
-	- `work_date`
-	- `photo` (jpg/png)
-	- `status` (`Completed`, `Pending`, `To Do`)
-- Save action:
-	- Upload photo to Cloudinary (if provided)
-	- Insert new row in `reports`
-	- Update task `status` in `tasks`
-	- Send report-updated email to engineer email stored in `tasks`
-	- Wrapped in DB transaction for consistency
-
-Relevant files:
-- `components/EditTaskModal.jsx`
-- `app/api/update_task/route.js`
-- `lib/db.js`
-
-## 4.6 PDF generation
-
-- Print icon fetches task + report data from API.
-- HTML template is rendered off-screen.
-- `html2canvas` captures it.
-- `jsPDF` exports a downloadable PDF (`task-<id>.pdf`).
-
-Relevant files:
-- `app/(protected)/page.js`
-- `app/api/generate_pdf/route.js`
-
-## 4.7 Notifications and UX feedback
-
-- Success and error toasts on all main actions:
-	- login
-	- create task
-	- edit task
-	- print pdf
-	- data loading errors
-
-Relevant files:
-- `components/ui/sonner.jsx`
-- `app/layout.js`
-
-## 5. API Contract
+## API Endpoints
 
 ### `POST /api/create_task`
 
-- Input:
-	- `cust_name`, `address`, `task_reported_by`, `engg_name`, `engg_email`
-- Output:
-	- `{ success: true, task_id }`
-- Behavior:
-	- Inserts a task with status `Pending`
-	- Sends email to engineer
+- Validates task payload.
+- Inserts into `tasks` with PostgreSQL parameterized query.
+- Returns `{ success: true, task_id }`.
 
 ### `GET /api/get_tasks`
 
-- Output:
-	- `{ tasks: [...] }`
-- Behavior:
-	- Returns tasks sorted by descending `reported_datetime`
+- Ensures required schema exists.
+- Returns tasks plus distinct email options used by forms.
+- Returns `{ tasks, enggEmailOptions, reporterEmailOptions }`.
 
 ### `POST /api/update_task`
 
-- Input:
-	- `task_id`, `observation`, `work_done`, `work_date`, `start_time`, `end_time`, `location`, `photo`, `status`
-- Output:
-	- `{ success: true }`
-- Behavior:
-	- Inserts report row
-	- Updates task status
+- Validates update payload.
+- Inserts report row and updates task row in a transaction.
+- Returns `{ success: true }`.
 
 ### `GET /api/generate_pdf?task_id=<id>`
 
-- Output:
-	- `{ task, report, reports }`
-- Behavior:
-	- Returns task and latest report details for PDF rendering
+- Returns task, latest report, resolved location, and report history.
 
-## 6. Security and Good Practices Implemented
+### `GET /api/reverse_geocode?lat=<lat>&long=<long>`
 
-- Prepared statements with parameterized queries (`?`) in all DB writes/reads.
-- Environment variables for all secrets and connection values.
-- Authentication guard on internal routes.
-- Input validation with zod in write APIs.
-- DB transaction for multi-step update (`reports` insert + `tasks` update).
-- `server-only` on server libraries (`lib/db.js`, `lib/email.js`) to avoid client exposure.
+- Validates coordinates.
+- Returns coordinate pair and reverse-geocoded address data.
 
-## 7. Folder Structure
+## Environment Variables
 
-```text
-app/
-	(protected)/
-		layout.js
-		page.js
-	api/
-		create_task/route.js
-		get_tasks/route.js
-		update_task/route.js
-		generate_pdf/route.js
-	login/page.js
-	globals.css
-	layout.js
-
-components/
-	AuthGuard.jsx
-	Navbar.jsx
-	NewTaskModal.jsx
-	EditTaskModal.jsx
-	TaskTable.jsx
-	ui/
-
-hooks/
-	useAuth.js
-
-lib/
-	db.js
-	email.js
-	firebase.js
-	utils.js
-	validators.js
-
-utils/
-	dateFormatter.js
-```
-
-## 8. Environment Variables
-
-Use `.env.local` (copy from `.env.example`).
+Create `.env.local` from `.env.example` and fill values.
 
 ```env
-# MySQL
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=WRMG
+# PostgreSQL (Supabase-managed, used with Node.js pg)
+# Format: postgresql://USER:PASSWORD@HOST:PORT/DB_NAME?sslmode=require
+DATABASE_URL=postgresql://postgres:your_password@db.your-project-ref.supabase.co:5432/postgres?sslmode=require
 
 # Firebase Web Config
 NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
@@ -295,51 +134,55 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 
-# Cloudinary
+# Cloudinary (unsigned upload)
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
 NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your_unsigned_upload_preset
 
-# SMTP
+# SMTP (Nodemailer)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=you@example.com
 SMTP_PASS=your_password_or_app_password
 SMTP_FROM=you@example.com
+ADMIN_NOTIFICATION_EMAILS=admin1@example.com,admin2@example.com
 ```
 
-## 9. Database Schema
+## PostgreSQL Schema (Current)
+
+Schema is auto-created by backend bootstrap in `lib/taskSchema.js`.
 
 ```sql
 CREATE TABLE IF NOT EXISTS tasks (
-	task_id INT NOT NULL AUTO_INCREMENT,
-	cust_name VARCHAR(150) NOT NULL,
-	address TEXT NOT NULL,
-	task_reported_by VARCHAR(150) DEFAULT NULL,
-	reported_datetime DATETIME DEFAULT CURRENT_TIMESTAMP,
-	engg_name VARCHAR(150) DEFAULT NULL,
-	engg_email VARCHAR(255) DEFAULT NULL,
-	status VARCHAR(50) DEFAULT 'Pending',
-	PRIMARY KEY (task_id)
+  task_id SERIAL PRIMARY KEY,
+  cust_name VARCHAR(150) NOT NULL,
+  address TEXT NOT NULL,
+  task_reported_by VARCHAR(150) DEFAULT NULL,
+  reporter_email VARCHAR(255) DEFAULT NULL,
+  reported_datetime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  engg_name VARCHAR(150) DEFAULT NULL,
+  engg_email VARCHAR(255) DEFAULT NULL,
+  status VARCHAR(50) DEFAULT 'Pending'
 );
 
 CREATE TABLE IF NOT EXISTS reports (
-	report_id INT NOT NULL AUTO_INCREMENT,
-	task_id INT NOT NULL,
-	observation TEXT,
-	work_done TEXT,
-	work_date DATE,
-	start_time TIME,
-	end_time TIME,
-	location VARCHAR(255),
-	photo VARCHAR(255),
-	status VARCHAR(50),
-	PRIMARY KEY (report_id),
-	KEY idx_reports_task_id (task_id),
-	CONSTRAINT fk_reports_task FOREIGN KEY (task_id) REFERENCES tasks(task_id)
+  report_id SERIAL PRIMARY KEY,
+  task_id INT NOT NULL,
+  observation TEXT,
+  work_done TEXT,
+  work_date DATE,
+  start_time TIME,
+  end_time TIME,
+  location VARCHAR(255),
+  reporter_email VARCHAR(255),
+  photo TEXT,
+  status VARCHAR(50),
+  CONSTRAINT fk_reports_task FOREIGN KEY (task_id) REFERENCES tasks(task_id) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_reports_task_id ON reports(task_id);
 ```
 
-## 10. Setup and Run Instructions
+## Setup
 
 1. Install dependencies.
 
@@ -347,7 +190,7 @@ CREATE TABLE IF NOT EXISTS reports (
 npm install
 ```
 
-2. Create env file.
+2. Create local env file.
 
 PowerShell:
 
@@ -361,42 +204,46 @@ Bash:
 cp .env.example .env.local
 ```
 
-3. Fill `.env.local` with your Firebase auth, Cloudinary, MySQL, and SMTP credentials.
-4. Run SQL schema scripts in MySQL.
-5. Start development server.
+3. Fill `.env.local` values for PostgreSQL, Firebase, Cloudinary, and SMTP.
+4. Start development server.
 
 ```bash
 npm run dev
 ```
 
-6. Open `http://localhost:3000`.
+5. Open `http://localhost:3000`.
 
-## 11. Available npm scripts
+## NPM Scripts
 
-- `npm run dev`: run local dev server
-- `npm run build`: create production build
-- `npm run start`: run production server
-- `npm run lint`: lint the project
+- `npm run dev` starts local dev server.
+- `npm run build` creates production build.
+- `npm run start` starts production server.
+- `npm run lint` runs ESLint.
 
-## 12. Troubleshooting
+## Troubleshooting
 
-### Login fails
+### Intermittent DB 500 errors
 
-- Ensure Firebase Email/Password provider is enabled.
-- Ensure user exists in Firebase Console.
-- Verify `NEXT_PUBLIC_FIREBASE_*` values.
+- Confirm `DATABASE_URL` host is real and not a placeholder.
+- Verify network access to Supabase host from your machine.
+- Ensure `.env.local` is loaded by restarting dev server after env edits.
 
-### Task create/update fails with DB error
+### Login issues
 
-- Verify MySQL server is running.
-- Verify DB credentials in `.env.local`.
-- Ensure tables exist and column names match schema.
+- Enable Firebase Email/Password provider.
+- Ensure user exists in Firebase Auth.
+- Verify all `NEXT_PUBLIC_FIREBASE_*` values.
 
-### Photo upload fails
+### Email not sent
 
-- Ensure Cloudinary unsigned upload preset is created.
+- Verify SMTP credentials and `SMTP_FROM`.
+- Verify `ADMIN_NOTIFICATION_EMAILS` format.
+
+### Image upload issues
+
+- Verify Cloudinary unsigned upload preset.
 - Verify `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` and `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`.
-- Confirm file type is jpg/png.
+- Upload only supported image types (`jpg`, `png`).
 
 ### Email not sent
 
